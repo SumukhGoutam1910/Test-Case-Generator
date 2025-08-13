@@ -10,7 +10,7 @@ export default function RepoList({ token, onSelect }) {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch('http://localhost:5000/api/github/repos', {
+  const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/github/repos`, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: 'include',
         });

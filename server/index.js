@@ -9,7 +9,7 @@ import axios from 'axios';
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
+app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
 app.use(express.json({ limit: '10mb' })); // Increase payload limit
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(session({
@@ -40,7 +40,7 @@ app.get('/auth/github/callback', passport.authenticate('github', {
   console.log('GitHub OAuth callback, req.user:', req.user);
   console.log('Session:', req.session);
   // Redirect to frontend with a flag
-  res.redirect('http://localhost:3000?loggedin=true');
+  res.redirect(`${process.env.FRONTEND_URL}?loggedin=true`);
 });
 
 app.get('/api/github/user', (req, res) => {

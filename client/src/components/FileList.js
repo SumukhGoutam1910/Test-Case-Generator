@@ -29,7 +29,7 @@ export default function FileList({ repo, token, onSelectFiles }) {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch(`http://localhost:5000/api/github/files?repo=${repo.name}`, {
+  const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/github/files?repo=${repo.name}`, {
           headers: { Authorization: `Bearer ${token}` },
           credentials: 'include',
         });

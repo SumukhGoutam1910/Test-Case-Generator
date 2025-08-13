@@ -10,7 +10,7 @@ export default function App() {
 
   useEffect(() => {
     // Check if user is authenticated
-    fetch('http://localhost:5000/api/github/user', {
+  fetch(`${process.env.REACT_APP_BACKEND_URL}/api/github/user`, {
       credentials: 'include',
     })
       .then(res => res.json())

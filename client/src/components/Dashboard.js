@@ -64,7 +64,7 @@ export default function Dashboard({ token }) {
               // Fetch file contents for selected files
               const fileContents = await Promise.all(selectedFiles.map(async (file) => {
                 // ...existing code...
-                const res = await fetch(`http://localhost:5000/api/github/file-content?repo=${selectedRepo.name}&path=${file}`, {
+                const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/github/file-content?repo=${selectedRepo.name}&path=${file}`, {
                   headers: { Authorization: `Bearer ${token}` },
                   credentials: 'include',
                 });
@@ -83,7 +83,7 @@ export default function Dashboard({ token }) {
                 return { filename: file, content };
               }));
               // ...existing code...
-              const aiRes = await fetch('http://localhost:5000/api/ai/summaries', {
+              const aiRes = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/ai/summaries`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -113,7 +113,7 @@ export default function Dashboard({ token }) {
             setLoading(true);
             setError('');
             try {
-              const aiRes = await fetch('http://localhost:5000/api/ai/testcode', {
+              const aiRes = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/ai/testcode`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',

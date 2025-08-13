@@ -4,7 +4,7 @@ import './uiverse.css';
 
 export default function Login({ onLogin }) {
   const handleLogin = () => {
-    window.location.href = 'http://localhost:5000/auth/github';
+  window.location.href = `${process.env.REACT_APP_BACKEND_URL}/auth/github`;
   };
 
   return (
