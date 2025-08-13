@@ -1,5 +1,6 @@
 const path = require('path');
 
+const webpack = require('webpack');
 module.exports = {
   entry: './src/index.js',
   output: {
@@ -30,4 +31,9 @@ module.exports = {
     historyApiFallback: true,
     port: 3000,
   },
+  plugins: [
+    new webpack.DefinePlugin({
+      'process.env.REACT_APP_BACKEND_URL': JSON.stringify(process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000')
+    })
+  ],
 };
