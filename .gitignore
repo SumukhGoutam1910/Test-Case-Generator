@@ -1,0 +1,59 @@
+# Node
+node_modules/
+
+# Build
+build/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# VS Code
+.vscode/
+
+# Coverage
+coverage/
+
+# Misc
+*.swp
+*.swo
+
+# React
+client/build/
+client/dist/
+
+# Server
+server/build/
+server/dist/
+
+# Others
+*.pyc
+__pycache__/
+
+# Windows
+*.exe
+*.dll
+*.bat
+*.cmd
+
+# Mac
+*.DS_Store
+
+# Test
+*.test.js
+*.spec.js
+
+# Jupyter
+.ipynb_checkpoints/

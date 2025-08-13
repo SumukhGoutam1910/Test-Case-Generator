@@ -1,0 +1,18 @@
+.uiverse-btn {
+  background: linear-gradient(90deg, #0072ff 0%, #00c6ff 100%);
+  color: #fff;
+  border: none;
+  padding: 14px 36px;
+  border-radius: 8px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin: 18px 0;
+}
+.uiverse-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+  background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%);
+}
