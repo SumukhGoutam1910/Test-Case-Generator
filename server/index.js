@@ -11,11 +11,16 @@ dotenv.config();
 
 const app = express();
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: [
+    'https://test-case-generator-six.vercel.app',
+    'http://localhost:3000', // for local development
+    process.env.FRONTEND_URL
+  ].filter(Boolean), // Remove any undefined values
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  optionsSuccessStatus: 200 // For legacy browser support
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['set-cookie'],
+  optionsSuccessStatus: 200
 }));
 app.use(express.json({ limit: '10mb' })); // Increase payload limit
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
@@ -32,7 +37,7 @@ app.use(session({
     // domain: '.onrender.com', // REMOVE OR COMMENT OUT THIS LINE
     sameSite: 'none',
     secure: true,
-    httpOnly: true,
+    httpOnly: false,
     maxAge: 24 * 60 * 60 * 1000,
   }
 }));
@@ -86,6 +91,33 @@ app.get('/health', (req, res) => {
     mongodb: statusMap[mongoStatus] || 'unknown',
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
+  });
+});
+
+// Add this temporary debug endpoint to test cookie setting
+app.get('/debug/set-cookie', (req, res) => {
+  res.cookie('test-cookie', 'test-value', {
+    sameSite: 'none',
+    secure: true,
+    httpOnly: false,
+    maxAge: 60000, // 1 minute
+  });
+  
+  res.json({
+    message: 'Test cookie set',
+    headers: req.headers,
+    sessionID: req.sessionID,
+    session: req.session,
+  });
+});
+
+// Test if cookie is received
+app.get('/debug/check-cookie', (req, res) => {
+  res.json({
+    cookies: req.cookies,
+    headers: req.headers,
+    sessionID: req.sessionID,
+    user: req.user,
   });
 });
 
