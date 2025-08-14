@@ -10,7 +10,13 @@ import axios from 'axios';
 dotenv.config();
 
 const app = express();
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200 // For legacy browser support
+}));
 app.use(express.json({ limit: '10mb' })); // Increase payload limit
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use(session({
@@ -41,6 +47,44 @@ passport.use(new GitHubStrategy({
   profile.accessToken = accessToken;
   return done(null, profile);
 }));
+
+// Add this middleware after passport setup and before your routes:
+app.use((req, res, next) => {
+  console.log('--- Request Debug Info ---');
+  console.log('URL:', req.url);
+  console.log('Method:', req.method);
+  console.log('Session ID:', req.sessionID);
+  console.log('Session:', req.session);
+  console.log('User:', req.user);
+  console.log('Is Authenticated:', req.isAuthenticated ? req.isAuthenticated() : 'N/A');
+  console.log('Headers:', {
+    cookie: req.headers.cookie,
+    'user-agent': req.headers['user-agent'],
+    origin: req.headers.origin,
+    referer: req.headers.referer
+  });
+  console.log('--- End Debug Info ---');
+  next();
+});
+
+
+// Add this endpoint to check MongoDB connection status
+app.get('/health', (req, res) => {
+  const mongoStatus = mongoose.connection.readyState;
+  const statusMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+  
+  res.json({
+    status: 'OK',
+    mongodb: statusMap[mongoStatus] || 'unknown',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString()
+  });
+});
 
 app.get('/auth/github', passport.authenticate('github', { scope: ['repo'] }));
 
