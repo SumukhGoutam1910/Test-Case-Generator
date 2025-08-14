@@ -1,51 +1,35 @@
 import express from 'express';
-import session from 'express-session';
-import MongoStore from 'connect-mongo';
+import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import GitHubStrategy from 'passport-github2';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import axios from 'axios';
+import { getUserRepos, getRepoFiles, getFileContent } from './github.js';
 
 dotenv.config();
 
 const app = express();
+
+// CORS configuration
 app.use(cors({
   origin: [
     'https://test-case-generator-six.vercel.app',
-    'http://localhost:3000', // for local development
+    'http://localhost:3000',
     process.env.FRONTEND_URL
-  ].filter(Boolean), // Remove any undefined values
+  ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['set-cookie'],
   optionsSuccessStatus: 200
 }));
-app.use(express.json({ limit: '10mb' })); // Increase payload limit
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-session-secret',
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: process.env.MONGO_URI,
-    collectionName: 'sessions',
-    ttl: 24 * 60 * 60,
-  }),
-  cookie: {
-    // domain: '.onrender.com', // REMOVE OR COMMENT OUT THIS LINE
-    sameSite: 'none',
-    secure: true,
-    httpOnly: false,
-    maxAge: 24 * 60 * 60 * 1000,
-  }
-}));
-app.use(passport.initialize());
-app.use(passport.session());
 
-passport.serializeUser((user, done) => done(null, user));
-passport.deserializeUser((obj, done) => done(null, obj));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Passport setup (minimal, no session)
+app.use(passport.initialize());
 
 passport.use(new GitHubStrategy({
   clientID: process.env.GITHUB_CLIENT_ID,
@@ -56,136 +40,117 @@ passport.use(new GitHubStrategy({
   return done(null, profile);
 }));
 
-// Add this middleware after passport setup and before your routes:
+// JWT middleware to verify token
+function verifyJWT(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '') || 
+                req.query.token || 
+                req.headers['x-auth-token'];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    console.error('JWT verification failed:', error.message);
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+// Debug middleware (optional, remove in production)
 app.use((req, res, next) => {
-  console.log('--- Request Debug Info ---');
-  console.log('URL:', req.url);
-  console.log('Method:', req.method);
-  console.log('Session ID:', req.sessionID);
-  console.log('Session:', req.session);
-  console.log('User:', req.user);
-  console.log('Is Authenticated:', req.isAuthenticated ? req.isAuthenticated() : 'N/A');
-  console.log('Headers:', {
-    cookie: req.headers.cookie,
-    'user-agent': req.headers['user-agent'],
-    origin: req.headers.origin,
-    referer: req.headers.referer
-  });
-  console.log('--- End Debug Info ---');
+  console.log(`${req.method} ${req.url}`);
+  if (req.headers.authorization) {
+    console.log('Authorization header present');
+  }
   next();
 });
 
-
-// Add this endpoint to check MongoDB connection status
+// Health check
 app.get('/health', (req, res) => {
-  const mongoStatus = mongoose.connection.readyState;
-  const statusMap = {
-    0: 'disconnected',
-    1: 'connected',
-    2: 'connecting',
-    3: 'disconnecting'
-  };
-  
   res.json({
     status: 'OK',
-    mongodb: statusMap[mongoStatus] || 'unknown',
     uptime: process.uptime(),
     timestamp: new Date().toISOString()
   });
 });
 
-// Add this temporary debug endpoint to test cookie setting
-app.get('/debug/set-cookie', (req, res) => {
-  res.cookie('test-cookie', 'test-value', {
-    sameSite: 'none',
-    secure: true,
-    httpOnly: false,
-    maxAge: 60000, // 1 minute
-  });
-  
-  res.json({
-    message: 'Test cookie set',
-    headers: req.headers,
-    sessionID: req.sessionID,
-    session: req.session,
-  });
-});
-
-// Test if cookie is received
-app.get('/debug/check-cookie', (req, res) => {
-  res.json({
-    cookies: req.cookies,
-    headers: req.headers,
-    sessionID: req.sessionID,
-    user: req.user,
-  });
-});
-
+// GitHub OAuth routes
 app.get('/auth/github', passport.authenticate('github', { scope: ['repo'] }));
 
 app.get('/auth/github/callback', passport.authenticate('github', {
   failureRedirect: '/',
 }), (req, res) => {
-  console.log('GitHub OAuth callback, req.user:', req.user);
-  console.log('Session:', req.session);
-  // Redirect to frontend with a flag
-  res.redirect(`${process.env.FRONTEND_URL}?loggedin=true`);
+  console.log('GitHub OAuth callback successful');
+  
+  // Create JWT token with user data
+  const token = jwt.sign(
+    {
+      id: req.user.id,
+      username: req.user.username || req.user._json.login,
+      accessToken: req.user.accessToken,
+      profileUrl: req.user.profileUrl,
+      avatarUrl: req.user.photos?.[0]?.value
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+  
+  console.log('Generated JWT token for user:', req.user.username || req.user._json.login);
+  
+  // Redirect to frontend with token
+  res.redirect(`${process.env.FRONTEND_URL}?token=${token}&loggedin=true`);
 });
 
-app.get('/api/github/user', (req, res) => {
-  console.log('GET /api/github/user, req.user:', req.user);
-  console.log('Session:', req.session);
-  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+// Protected API routes
+app.get('/api/github/user', verifyJWT, (req, res) => {
+  console.log('GET /api/github/user - authenticated user:', req.user.username);
   res.json({ user: req.user });
 });
 
-
-import { getUserRepos, getRepoFiles, getFileContent } from './github.js';
-
-// Middleware to ensure authentication
-function ensureAuth(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
-  next();
-}
-
-// Get user repos
-app.get('/api/github/repos', ensureAuth, async (req, res) => {
+app.get('/api/github/repos', verifyJWT, async (req, res) => {
   try {
+    console.log('Fetching repos for user:', req.user.username);
     const repos = await getUserRepos(req.user.accessToken);
     res.json(repos.map(r => ({ id: r.id, name: r.name, owner: r.owner.login })));
   } catch (e) {
+    console.error('Repos fetch error:', e.message);
     res.status(500).json({ error: 'Failed to fetch repos' });
   }
 });
 
-// Get files in repo
-app.get('/api/github/files', ensureAuth, async (req, res) => {
+app.get('/api/github/files', verifyJWT, async (req, res) => {
   const { repo } = req.query;
   const owner = req.user.username;
   try {
+    console.log(`Fetching files for ${owner}/${repo}`);
     const files = await getRepoFiles(req.user.accessToken, owner, repo);
     res.json(files);
   } catch (e) {
+    console.error('Files fetch error:', e.message);
     res.status(500).json({ error: 'Failed to fetch files' });
   }
 });
 
-// Get file content
-app.get('/api/github/file-content', ensureAuth, async (req, res) => {
+app.get('/api/github/file-content', verifyJWT, async (req, res) => {
   const { repo, path } = req.query;
   const owner = req.user.username;
   try {
+    console.log(`Fetching content for ${owner}/${repo}/${path}`);
     const content = await getFileContent(req.user.accessToken, owner, repo, path);
     res.json({ content });
   } catch (e) {
+    console.error('File content fetch error:', e.message);
     res.status(500).json({ error: 'Failed to fetch file content' });
   }
 });
 
-// AI API integration (Gemini, OpenAI, etc.)
-// Uses AI_API_KEY from .env
-app.post('/api/ai/summaries', ensureAuth, async (req, res) => {
-  const { files } = req.body; // [{ filename, content }]
+// AI API routes
+app.post('/api/ai/summaries', verifyJWT, async (req, res) => {
+  const { files } = req.body;
   console.log('AI summaries request received:', { filesCount: files?.length });
   
   try {
@@ -208,8 +173,6 @@ app.post('/api/ai/summaries', ensureAuth, async (req, res) => {
     );
     
     console.log('Gemini API response status:', result.status);
-    console.log('Gemini API response data:', JSON.stringify(result.data, null, 2));
-    
     const summaries = result.data.candidates?.[0]?.content?.parts?.[0]?.text?.split('\n').filter(line => line.trim()) || [];
     console.log('Extracted summaries:', summaries.length, 'items');
     
@@ -228,9 +191,10 @@ app.post('/api/ai/summaries', ensureAuth, async (req, res) => {
   }
 });
 
-app.post('/api/ai/testcode', ensureAuth, async (req, res) => {
+app.post('/api/ai/testcode', verifyJWT, async (req, res) => {
   const { summary } = req.body;
   try {
+    console.log('Generating test code for summary');
     const prompt = `Given the selected summary, generate the full test code using JUnit, Selenium, or an appropriate framework.\n${summary}`;
     const result = await axios.post(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',
@@ -240,6 +204,7 @@ app.post('/api/ai/testcode', ensureAuth, async (req, res) => {
     const code = result.data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     res.json({ code });
   } catch (e) {
+    console.error('Test code generation error:', e.message);
     res.status(500).json({ error: 'AI API error', details: e.message });
   }
 });
