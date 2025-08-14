@@ -23,7 +23,8 @@ app.use(session({
   }),
   cookie: {
     sameSite: 'none',
-    secure: true
+    secure: true,
+    domain: '.onrender.com'
   }
 }));
 app.use(passport.initialize());
