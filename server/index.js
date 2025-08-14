@@ -81,28 +81,28 @@ app.get('/health', (req, res) => {
 // GitHub OAuth routes
 app.get('/auth/github', passport.authenticate('github', { scope: ['repo'] }));
 
-app.get('/auth/github/callback', passport.authenticate('github', {
-  failureRedirect: '/',
-}), (req, res) => {
-  console.log('GitHub OAuth callback successful');
-  
-  // Create JWT token with user data
-  const token = jwt.sign(
-    {
-      id: req.user.id,
-      username: req.user.username || req.user._json.login,
-      accessToken: req.user.accessToken,
-      profileUrl: req.user.profileUrl,
-      avatarUrl: req.user.photos?.[0]?.value
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-  
-  console.log('Generated JWT token for user:', req.user.username || req.user._json.login);
-  
-  // Redirect to frontend with token
-  res.redirect(`${process.env.FRONTEND_URL}?token=${token}&loggedin=true`);
+app.get('/auth/github/callback', (req, res, next) => {
+  passport.authenticate('github', { session: false, failureRedirect: '/' }, (err, user, info) => {
+    if (err || !user) {
+      return res.redirect(process.env.FRONTEND_URL);
+    }
+    console.log('GitHub OAuth callback successful');
+    // Create JWT token with user data
+    const token = jwt.sign(
+      {
+        id: user.id,
+        username: user.username || user._json.login,
+        accessToken: user.accessToken,
+        profileUrl: user.profileUrl,
+        avatarUrl: user.photos?.[0]?.value
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    console.log('Generated JWT token for user:', user.username || user._json.login);
+    // Redirect to frontend with token
+    return res.redirect(`${process.env.FRONTEND_URL}?token=${token}&loggedin=true`);
+  })(req, res, next);
 });
 
 // Protected API routes
