@@ -26,11 +26,14 @@ app.use(session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGO_URI,
     collectionName: 'sessions',
+    ttl: 24 * 60 * 60,
   }),
   cookie: {
+    // domain: '.onrender.com', // REMOVE OR COMMENT OUT THIS LINE
     sameSite: 'none',
     secure: true,
-    domain: '.onrender.com'
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000,
   }
 }));
 app.use(passport.initialize());
